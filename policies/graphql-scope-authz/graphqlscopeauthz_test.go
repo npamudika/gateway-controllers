@@ -21,6 +21,7 @@ package graphqlscopeauthz
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"testing"
 
 	policy "github.com/wso2/api-platform/sdk/core/policy/v1alpha2"
@@ -136,6 +137,55 @@ func TestGetPolicy_GlobalMustHaveScopesOrClaims(t *testing.T) {
 	params := map[string]interface{}{"global": map[string]interface{}{}}
 	if _, err := GetPolicy(policy.PolicyMetadata{}, params); err == nil {
 		t.Fatal("expected error when 'global' defines neither scopes nor claims")
+	}
+}
+
+func TestGetPolicy_RejectsExplicitlyEmptyScopeArray(t *testing.T) {
+	cases := []struct {
+		name string
+		key  string
+		val  []interface{}
+	}{
+		{"allOf empty array", "allOf", toAnySlice(nil)},
+		{"anyOf empty array", "anyOf", toAnySlice(nil)},
+		{"allOf blank strings only", "allOf", toAnySlice([]string{"  ", ""})},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			params := map[string]interface{}{
+				"queries": []interface{}{
+					map[string]interface{}{
+						"name": "books",
+						"scopes": map[string]interface{}{
+							c.key: c.val,
+						},
+					},
+				},
+			}
+			if _, err := GetPolicy(policy.PolicyMetadata{}, params); err == nil {
+				t.Fatalf("expected error for explicitly empty scopes.%s, got none", c.key)
+			}
+		})
+	}
+}
+
+func TestGetPolicy_AbsentScopeArrayStillAllowed(t *testing.T) {
+	// A rule relying on claims alone, with scopes omitted entirely, must still work —
+	// only an explicitly-provided-but-empty array is rejected, not an absent one.
+	params := map[string]interface{}{
+		"queries": []interface{}{
+			map[string]interface{}{
+				"name": "books",
+				"claims": map[string]interface{}{
+					"allOf": []interface{}{
+						map[string]interface{}{"claim": "role", "values": toAnySlice([]string{"admin"})},
+					},
+				},
+			},
+		},
+	}
+	if _, err := GetPolicy(policy.PolicyMetadata{}, params); err != nil {
+		t.Fatalf("expected no error when scopes is omitted entirely, got: %v", err)
 	}
 }
 
@@ -414,6 +464,35 @@ func TestMode(t *testing.T) {
 	mode := p.Mode()
 	if mode.RequestBodyMode != policy.BodyModeBuffer {
 		t.Errorf("expected RequestBodyMode to be BodyModeBuffer, got %v", mode.RequestBodyMode)
+	}
+}
+
+// evaluateMatches collects missing scopes into a map before returning them as a slice,
+// so the order is otherwise unspecified; this asserts the result is always sorted,
+// regardless of the map's internal (randomized) iteration order.
+func TestEvaluateMatches_MissingScopesAreSorted(t *testing.T) {
+	matches := []fieldRuleMatch{
+		{
+			FieldName: "books",
+			Rules: []Rule{
+				{Name: "books", Scopes: ScopeConstraints{AllOf: []string{"zeta:scope", "delta:scope"}}},
+			},
+		},
+		{
+			FieldName: "authors",
+			Rules: []Rule{
+				{Name: "authors", Scopes: ScopeConstraints{AllOf: []string{"mike:scope", "alpha:scope"}}},
+			},
+		},
+	}
+	authCtx := authenticatedAuthCtx(nil, nil) // no scopes at all: every listed scope is missing
+	authorized, missing := evaluateMatches(matches, authCtx)
+	if authorized {
+		t.Fatal("expected authorized to be false")
+	}
+	want := []string{"alpha:scope", "delta:scope", "mike:scope", "zeta:scope"}
+	if !reflect.DeepEqual(missing, want) {
+		t.Fatalf("expected sorted missing scopes %v, got %v", want, missing)
 	}
 }
 

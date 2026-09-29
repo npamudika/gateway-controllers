@@ -37,6 +37,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -245,6 +246,10 @@ func parseStringArray(m map[string]interface{}, key, ctx string) ([]string, erro
 }
 
 // parseScopeConstraints reads the `scopes` object. Absent/empty -> empty; malformed -> error.
+// An explicitly-configured allOf/anyOf that normalizes to an empty slice (an empty array, or
+// one containing only blank strings) is rejected rather than silently treated as absent: it
+// almost always signals a config mistake (e.g. a templated list that rendered empty), and
+// silently ignoring it would leave the rule quietly weaker than intended.
 func parseScopeConstraints(m map[string]interface{}, ctx string) (ScopeConstraints, error) {
 	raw, ok := m["scopes"]
 	if !ok || raw == nil {
@@ -258,9 +263,15 @@ func parseScopeConstraints(m map[string]interface{}, ctx string) (ScopeConstrain
 	if err != nil {
 		return ScopeConstraints{}, err
 	}
+	if v, present := sm["allOf"]; present && v != nil && len(allOf) == 0 {
+		return ScopeConstraints{}, fmt.Errorf("%s.scopes.allOf must not be empty", ctx)
+	}
 	anyOf, err := parseStringArray(sm, "anyOf", ctx+".scopes")
 	if err != nil {
 		return ScopeConstraints{}, err
+	}
+	if v, present := sm["anyOf"]; present && v != nil && len(anyOf) == 0 {
+		return ScopeConstraints{}, fmt.Errorf("%s.scopes.anyOf must not be empty", ctx)
 	}
 	return ScopeConstraints{AllOf: allOf, AnyOf: anyOf}, nil
 }
@@ -548,6 +559,7 @@ func evaluateMatches(matches []fieldRuleMatch, authCtx *policy.AuthContext) (boo
 	for s := range missing {
 		missingList = append(missingList, s)
 	}
+	sort.Strings(missingList)
 	return authorized, missingList
 }
 
