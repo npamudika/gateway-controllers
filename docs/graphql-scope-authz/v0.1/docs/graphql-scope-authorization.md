@@ -103,6 +103,23 @@ spec:
 ### Example 2: Type-Wide Wildcard
 
 ```yaml
+apiVersion: gateway.api-platform.wso2.com/v1
+kind: GraphQLApi
+metadata:
+  name: bookstore-api-v1.0
+spec:
+  displayName: bookstore-api
+  version: v1.0
+  context: /bookstore
+  vhost: graphql1.gw.example.com
+  upstream:
+    url: https://bookstore-backend:8080/graphql
+  policies:
+    - name: jwt-auth
+      version: v1
+      params:
+        issuers:
+          - PrimaryIDP
     - name: graphql-scope-authz
       version: v0
       params:
@@ -132,6 +149,23 @@ spec:
 ### Example 3: Global Baseline Stacked With Op-Level Rules
 
 ```yaml
+apiVersion: gateway.api-platform.wso2.com/v1
+kind: GraphQLApi
+metadata:
+  name: bookstore-api-v1.0
+spec:
+  displayName: bookstore-api
+  version: v1.0
+  context: /bookstore
+  vhost: graphql1.gw.example.com
+  upstream:
+    url: https://bookstore-backend:8080/graphql
+  policies:
+    - name: jwt-auth
+      version: v1
+      params:
+        issuers:
+          - PrimaryIDP
     - name: graphql-scope-authz
       version: v0
       params:
@@ -172,6 +206,23 @@ spec:
 ### Example 4: Claim-Based Rule and Multi-Field Requests
 
 ```yaml
+apiVersion: gateway.api-platform.wso2.com/v1
+kind: GraphQLApi
+metadata:
+  name: bookstore-api-v1.0
+spec:
+  displayName: bookstore-api
+  version: v1.0
+  context: /bookstore
+  vhost: graphql1.gw.example.com
+  upstream:
+    url: https://bookstore-backend:8080/graphql
+  policies:
+    - name: jwt-auth
+      version: v1
+      params:
+        issuers:
+          - PrimaryIDP
     - name: graphql-scope-authz
       version: v0
       params:
@@ -201,6 +252,66 @@ spec:
 **Scenario 14**: Caller with only `books:read` runs `query { books { id } authors { id } }`
 - The request selects two root fields; `authors` also requires `authors:read`, which this caller lacks.
 - Result: ❌ `403` — every governed field in the request must pass, not just one.
+
+### Example 5: Claims-Only Configuration
+
+> Every rule here uses `claims` — no `scopes` appear anywhere in this configuration — showing that scopes are entirely optional as long as at least one of `scopes` / `claims` is present per rule.
+
+```yaml
+apiVersion: gateway.api-platform.wso2.com/v1
+kind: GraphQLApi
+metadata:
+  name: bookstore-api-v1.0
+spec:
+  displayName: bookstore-api
+  version: v1.0
+  context: /bookstore
+  vhost: graphql1.gw.example.com
+  upstream:
+    url: https://bookstore-backend:8080/graphql
+  policies:
+    - name: jwt-auth
+      version: v1
+      params:
+        issuers:
+          - PrimaryIDP
+    - name: graphql-scope-authz
+      version: v0
+      params:
+        queries:
+          - name: books
+            claims:
+              anyOf:
+                - claim: department
+                  values: ["sales", "marketing"]
+        mutations:
+          - name: deleteBook
+            claims:
+              allOf:
+                - claim: role
+                  values: ["admin"]
+        global:
+          claims:
+            allOf:
+              - claim: tenant
+                values: ["acme-corp"]
+```
+
+**Scenario 15**: Caller with claims `department=sales` and `tenant=acme-corp` runs `query { books { id } }`
+- `books`'s own rule (`department` in `["sales", "marketing"]`) and `global` (`tenant=acme-corp`) both pass.
+- Result: ✅ Authorized.
+
+**Scenario 16**: Caller with claims `department=engineering` and `tenant=acme-corp` runs `query { books { id } }`
+- `global`'s `tenant` requirement is met, but `books`'s own rule fails — `engineering` is not in `["sales", "marketing"]`.
+- Result: ❌ `403`.
+
+**Scenario 17**: Caller with claims `role=admin` and `tenant=other-corp` runs `mutation { deleteBook(id: "1") }`
+- `deleteBook`'s own rule (`role=admin`) passes, but `global` also governs it and `tenant` doesn't match `acme-corp`.
+- Result: ❌ `403` — same stacking behavior as Example 3, now with claims instead of scopes on both sides.
+
+**Scenario 18**: Caller with claims `role=admin` and `tenant=acme-corp` runs `mutation { deleteBook(id: "1") }`
+- Both rules governing `deleteBook` are satisfied.
+- Result: ✅ Authorized.
 
 ## Authorization Logic
 
