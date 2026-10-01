@@ -16,7 +16,7 @@
  * under the License.
  */
 
-// Package graphqlscopeauthz implements the GraphQL Scope Authorization policy.
+// Package graphqlauthz implements the GraphQL Authorization policy.
 //
 // The policy authorizes a GraphQL request's root Query/Mutation fields using
 // JWT claims and/or OAuth scopes carried on the request's AuthContext (populated
@@ -29,7 +29,7 @@
 // "*", no "global") is not this policy's concern: it passes through untouched,
 // leaving that field to whatever else is attached to the API (another policy,
 // or nothing).
-package graphqlscopeauthz
+package graphqlauthz
 
 import (
 	"context"
@@ -97,8 +97,8 @@ type Rule struct {
 
 func (r Rule) isEmpty() bool { return r.Scopes.isEmpty() && r.Claims.isEmpty() }
 
-// GraphQLScopeAuthzPolicy authorizes GraphQL query/mutation root fields.
-type GraphQLScopeAuthzPolicy struct {
+// GraphQLAuthzPolicy authorizes GraphQL query/mutation root fields.
+type GraphQLAuthzPolicy struct {
 	Queries   []Rule
 	Mutations []Rule
 	Global    *Rule
@@ -114,7 +114,7 @@ type graphQLRequest struct {
 
 // GetPolicy is the v1alpha2 factory entry point (loaded by v1alpha2 kernels).
 func GetPolicy(metadata policy.PolicyMetadata, params map[string]interface{}) (policy.Policy, error) {
-	p := &GraphQLScopeAuthzPolicy{}
+	p := &GraphQLAuthzPolicy{}
 
 	queries, err := parseRuleArray(params, "queries")
 	if err != nil {
@@ -135,7 +135,7 @@ func GetPolicy(metadata policy.PolicyMetadata, params map[string]interface{}) (p
 
 	p.Queries, p.Mutations, p.Global = queries, mutations, global
 
-	slog.Debug("GraphQL Scope Authorization: policy initialized",
+	slog.Debug("GraphQL Authorization: policy initialized",
 		"queriesCount", len(p.Queries), "mutationsCount", len(p.Mutations), "hasGlobal", p.Global != nil)
 
 	return p, nil
@@ -328,7 +328,7 @@ func parseClaimConstraints(m map[string]interface{}, ctx string) (ClaimConstrain
 	return ClaimConstraints{AllOf: allOf, AnyOf: anyOf}, nil
 }
 
-func (p *GraphQLScopeAuthzPolicy) Mode() policy.ProcessingMode {
+func (p *GraphQLAuthzPolicy) Mode() policy.ProcessingMode {
 	return policy.ProcessingMode{
 		RequestHeaderMode:  policy.HeaderModeSkip,
 		RequestBodyMode:    policy.BodyModeBuffer,
@@ -346,10 +346,10 @@ type fieldRuleMatch struct {
 }
 
 // OnRequestBody authorizes the GraphQL request's root query/mutation fields.
-func (p *GraphQLScopeAuthzPolicy) OnRequestBody(ctx context.Context, reqCtx *policy.RequestContext, _ map[string]interface{}) policy.RequestAction {
+func (p *GraphQLAuthzPolicy) OnRequestBody(ctx context.Context, reqCtx *policy.RequestContext, _ map[string]interface{}) policy.RequestAction {
 	ds := reqCtx.DownstreamRequest()
 	if !strings.EqualFold(ds.Method, "POST") {
-		slog.Debug("GraphQL Scope Authorization: skipping non-POST request", "method", ds.Method)
+		slog.Debug("GraphQL Authorization: skipping non-POST request", "method", ds.Method)
 		return nil
 	}
 
@@ -365,13 +365,13 @@ func (p *GraphQLScopeAuthzPolicy) OnRequestBody(ctx context.Context, reqCtx *pol
 
 	var req graphQLRequest
 	if err := json.Unmarshal(reqCtx.Body.Content, &req); err != nil || strings.TrimSpace(req.Query) == "" {
-		slog.Debug("GraphQL Scope Authorization: failed to parse request body")
+		slog.Debug("GraphQL Authorization: failed to parse request body")
 		return p.errorResponse(http.StatusBadRequest, `Invalid GraphQL request: a non-empty "query" field is required`)
 	}
 
 	doc, parseErr := parser.ParseQuery(&ast.Source{Input: req.Query})
 	if parseErr != nil {
-		slog.Debug("GraphQL Scope Authorization: failed to parse GraphQL query", "error", parseErr)
+		slog.Debug("GraphQL Authorization: failed to parse GraphQL query", "error", parseErr)
 		return p.errorResponse(http.StatusBadRequest, "Invalid GraphQL query: "+parseErr.Error())
 	}
 
@@ -386,7 +386,7 @@ func (p *GraphQLScopeAuthzPolicy) OnRequestBody(ctx context.Context, reqCtx *pol
 
 	if op.Operation != ast.Query && op.Operation != ast.Mutation {
 		// Subscriptions are not governed by this policy.
-		slog.Debug("GraphQL Scope Authorization: skipping ungoverned operation type", "operation", op.Operation)
+		slog.Debug("GraphQL Authorization: skipping ungoverned operation type", "operation", op.Operation)
 		return nil
 	}
 
@@ -408,7 +408,7 @@ func (p *GraphQLScopeAuthzPolicy) OnRequestBody(ctx context.Context, reqCtx *pol
 	// "global") must satisfy all of them.
 	matches := p.matchFields(string(op.Operation), fieldNames)
 	if len(matches) == 0 {
-		slog.Debug("GraphQL Scope Authorization: no matching rule for any requested field; request is not governed",
+		slog.Debug("GraphQL Authorization: no matching rule for any requested field; request is not governed",
 			"operation", op.Operation, "fields", fieldNames)
 		return nil
 	}
@@ -416,13 +416,13 @@ func (p *GraphQLScopeAuthzPolicy) OnRequestBody(ctx context.Context, reqCtx *pol
 	// At least one field is governed, so an authenticated identity is required.
 	authCtx := reqCtx.SharedContext.AuthContext
 	if authCtx == nil || !authCtx.Authenticated {
-		slog.Debug("GraphQL Scope Authorization: no authenticated context found for a governed field")
+		slog.Debug("GraphQL Authorization: no authenticated context found for a governed field")
 		return p.errorResponse(http.StatusUnauthorized, "Unauthorized: authentication required for this GraphQL operation")
 	}
 
 	authorized, missingScopes := evaluateMatches(matches, authCtx)
 	if !authorized {
-		slog.Debug("GraphQL Scope Authorization: authorization check failed", "missingScopes", missingScopes)
+		slog.Debug("GraphQL Authorization: authorization check failed", "missingScopes", missingScopes)
 		msg := "Forbidden: insufficient permissions to execute this GraphQL operation"
 		if len(missingScopes) > 0 {
 			msg = fmt.Sprintf("%s (missing scope(s): %s)", msg, strings.Join(missingScopes, ", "))
@@ -430,13 +430,13 @@ func (p *GraphQLScopeAuthzPolicy) OnRequestBody(ctx context.Context, reqCtx *pol
 		return p.errorResponse(http.StatusForbidden, msg)
 	}
 
-	slog.Debug("GraphQL Scope Authorization: authorization check passed")
+	slog.Debug("GraphQL Authorization: authorization check passed")
 	authCtx.Authorized = true
 	return nil
 }
 
 // errorResponse builds a standard GraphQL error response: {"errors":[{"message": "..."}]}.
-func (p *GraphQLScopeAuthzPolicy) errorResponse(statusCode int, message string) policy.RequestAction {
+func (p *GraphQLAuthzPolicy) errorResponse(statusCode int, message string) policy.RequestAction {
 	body, err := json.Marshal(map[string]interface{}{
 		"errors": []map[string]string{{"message": message}},
 	})
@@ -494,7 +494,7 @@ func rootFieldNames(set ast.SelectionSet, fragments ast.FragmentDefinitionList) 
 // op-level rules (queries or mutations, matching opType), the type-wide "*"
 // wildcard, and "global". A field matched by no rule at all is omitted from the
 // result (not governed by this policy).
-func (p *GraphQLScopeAuthzPolicy) matchFields(opType string, fieldNames []string) []fieldRuleMatch {
+func (p *GraphQLAuthzPolicy) matchFields(opType string, fieldNames []string) []fieldRuleMatch {
 	var typeRules []Rule
 	if opType == string(ast.Mutation) {
 		typeRules = p.Mutations

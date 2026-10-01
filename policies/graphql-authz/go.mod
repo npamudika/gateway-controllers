@@ -1,4 +1,4 @@
-module github.com/wso2/gateway-controllers/policies/graphql-scope-authz
+module github.com/wso2/gateway-controllers/policies/graphql-authz
 
 go 1.26.2
 

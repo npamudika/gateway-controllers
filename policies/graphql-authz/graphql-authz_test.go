@@ -16,7 +16,7 @@
  * under the License.
  */
 
-package graphqlscopeauthz
+package graphqlauthz
 
 import (
 	"context"
@@ -95,7 +95,7 @@ func TestGetPolicy_ValidQueries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetPolicy returned error: %v", err)
 	}
-	gp := p.(*GraphQLScopeAuthzPolicy)
+	gp := p.(*GraphQLAuthzPolicy)
 	if len(gp.Queries) != 1 || gp.Queries[0].Name != "books" {
 		t.Fatalf("unexpected parsed queries: %+v", gp.Queries)
 	}
@@ -127,7 +127,7 @@ func TestGetPolicy_GlobalOnly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetPolicy returned error: %v", err)
 	}
-	gp := p.(*GraphQLScopeAuthzPolicy)
+	gp := p.(*GraphQLAuthzPolicy)
 	if gp.Global == nil {
 		t.Fatal("expected Global rule to be set")
 	}
@@ -502,13 +502,13 @@ func simpleGlobal(scope string) map[string]interface{} {
 	return map[string]interface{}{"scopes": map[string]interface{}{"anyOf": []interface{}{scope}}}
 }
 
-func mustPolicy(t *testing.T, params map[string]interface{}) *GraphQLScopeAuthzPolicy {
+func mustPolicy(t *testing.T, params map[string]interface{}) *GraphQLAuthzPolicy {
 	t.Helper()
 	p, err := GetPolicy(policy.PolicyMetadata{}, params)
 	if err != nil {
 		t.Fatalf("GetPolicy returned error: %v", err)
 	}
-	return p.(*GraphQLScopeAuthzPolicy)
+	return p.(*GraphQLAuthzPolicy)
 }
 
 func assertImmediateStatus(t *testing.T, action policy.RequestAction, wantStatus int) {

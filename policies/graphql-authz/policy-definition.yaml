@@ -1,4 +1,4 @@
-name: graphql-scope-authz
+name: graphql-authz
 version: v0.1.0
 description: |
   Authorize GraphQL query and mutation root fields using claim/scope rules evaluated after an authentication policy (e.g. jwt-auth) has populated the request's AuthContext. Rules are configured per field under `queries` / `mutations` ("op-level" rules), a type-wide `*` wildcard, and a cross-type `global` fallback; every rule that matches a field applies together (a `*` or `global` rule is not skipped just because the field also has its own exact rule — all matching rules must grant access). A field matched by no rule at all is not governed by this policy instance and passes through, leaving it to whatever else is attached to the API.

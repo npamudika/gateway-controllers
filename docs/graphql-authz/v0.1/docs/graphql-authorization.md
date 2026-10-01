@@ -1,11 +1,11 @@
 ---
 title: "Overview"
 ---
-# GraphQL Scope Authorization
+# GraphQL Authorization
 
 ## Overview
 
-The GraphQL Scope Authorization policy provides fine-grained access control for GraphQL APIs. It authorizes each root Query and Mutation field selected by a request using JWT claims and/or OAuth scopes carried on the request's `AuthContext`, which an upstream authentication policy (e.g. [jwt-auth](../../../jwt-auth/v1.3/docs/jwt-authentication.md)) must have already populated.
+The GraphQL Authorization policy provides fine-grained access control for GraphQL APIs. It authorizes each root Query and Mutation field selected by a request using JWT claims and/or OAuth scopes carried on the request's `AuthContext`, which an upstream authentication policy (e.g. [jwt-auth](../../../jwt-auth/v1.3/docs/jwt-authentication.md)) must have already populated.
 
 Unlike a REST API, a GraphQL API exposes a single HTTP endpoint for every query and mutation, so there is no per-operation route to attach a policy to at the transport level. This policy re-creates that per-operation control inside a single policy instance: rules are configured **per field name** under `queries` / `mutations` ("op-level" rules), plus a type-wide `*` wildcard and a cross-type `global` fallback. **Every rule that matches a field applies — they stack, they don't override.** This mirrors the [mcp-authz](../../../mcp-authz/v1.2/docs/mcp-authorization.md) policy's rule-matching model: a `*` or `global` rule is not skipped just because the field also has its own exact-name rule; if both match, both must grant access. A field matched by **no** rule at all — no exact rule, no `*`, no `global` — is **not governed by this policy instance**: it passes through untouched, leaving that field to whatever else is attached to the API (another policy, or nothing). This lets the policy govern exactly the fields it's configured for and defer everything else to the rest of the API's policy chain, rather than requiring every field the schema will ever have to be listed here up front.
 
@@ -72,7 +72,7 @@ spec:
       params:
         issuers:
           - PrimaryIDP
-    - name: graphql-scope-authz
+    - name: graphql-authz
       version: v0
       params:
         queries:
@@ -120,7 +120,7 @@ spec:
       params:
         issuers:
           - PrimaryIDP
-    - name: graphql-scope-authz
+    - name: graphql-authz
       version: v0
       params:
         queries:
@@ -166,7 +166,7 @@ spec:
       params:
         issuers:
           - PrimaryIDP
-    - name: graphql-scope-authz
+    - name: graphql-authz
       version: v0
       params:
         queries:
@@ -223,7 +223,7 @@ spec:
       params:
         issuers:
           - PrimaryIDP
-    - name: graphql-scope-authz
+    - name: graphql-authz
       version: v0
       params:
         mutations:
@@ -275,7 +275,7 @@ spec:
       params:
         issuers:
           - PrimaryIDP
-    - name: graphql-scope-authz
+    - name: graphql-authz
       version: v0
       params:
         queries:
@@ -315,7 +315,7 @@ spec:
 
 ## Authorization Logic
 
-The GraphQL Scope Authorization policy processes each POST request as follows:
+The GraphQL Authorization policy processes each POST request as follows:
 
 1. **Parse the request body** as a standard GraphQL-over-HTTP request (`query`, `operationName`, `variables`).
 2. **Parse the query document** and resolve the operation to execute via `operationName` (required when the document defines more than one operation).
