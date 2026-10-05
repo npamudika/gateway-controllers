@@ -35,7 +35,7 @@ parameters:
             x-wso2-policy-advanced-param: false
             description: The Query field name to authorize (e.g. `books`), or `*` to match every query field. A `*` rule applies in addition to a field's own exact-name rule when both match, not instead of it.
             minLength: 1
-            pattern: '\S'
+            pattern: '^(\*|[_A-Za-z][_0-9A-Za-z]*)$'
             maxLength: 256
 
           scopes:
@@ -133,7 +133,7 @@ parameters:
             x-wso2-policy-advanced-param: false
             description: The Mutation field name to authorize (e.g. `createUser`), or `*` to match every mutation field. A `*` rule applies in addition to a field's own exact-name rule when both match, not instead of it.
             minLength: 1
-            pattern: '\S'
+            pattern: '^(\*|[_A-Za-z][_0-9A-Za-z]*)$'
             maxLength: 256
 
           scopes:
