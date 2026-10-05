@@ -63,9 +63,9 @@ spec:
   displayName: bookstore-api
   version: v1.0
   context: /bookstore
-  vhost: graphql1.gw.example.com
   upstream:
-    url: https://bookstore-backend:8080/graphql
+    main:
+      url: https://bookstore-backend:8080/graphql
   policies:
     - name: jwt-auth
       version: v1
@@ -111,9 +111,9 @@ spec:
   displayName: bookstore-api
   version: v1.0
   context: /bookstore
-  vhost: graphql1.gw.example.com
   upstream:
-    url: https://bookstore-backend:8080/graphql
+    main:
+      url: https://bookstore-backend:8080/graphql
   policies:
     - name: jwt-auth
       version: v1
@@ -157,9 +157,9 @@ spec:
   displayName: bookstore-api
   version: v1.0
   context: /bookstore
-  vhost: graphql1.gw.example.com
   upstream:
-    url: https://bookstore-backend:8080/graphql
+    main:
+      url: https://bookstore-backend:8080/graphql
   policies:
     - name: jwt-auth
       version: v1
@@ -214,9 +214,9 @@ spec:
   displayName: bookstore-api
   version: v1.0
   context: /bookstore
-  vhost: graphql1.gw.example.com
   upstream:
-    url: https://bookstore-backend:8080/graphql
+    main:
+      url: https://bookstore-backend:8080/graphql
   policies:
     - name: jwt-auth
       version: v1
@@ -266,9 +266,9 @@ spec:
   displayName: bookstore-api
   version: v1.0
   context: /bookstore
-  vhost: graphql1.gw.example.com
   upstream:
-    url: https://bookstore-backend:8080/graphql
+    main:
+      url: https://bookstore-backend:8080/graphql
   policies:
     - name: jwt-auth
       version: v1
