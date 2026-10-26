@@ -40,7 +40,7 @@ These parameters are configured per-API/route by the API developer:
 | `maxAge` | integer | No | `3600` | Maximum time in seconds that a preflight response can be cached by the browser. Valid range: 0 to 86400. Helps reduce the number of preflight requests. |
 | `forwardPreflight` | boolean | No | `false` | If true, forwards preflight requests that do not match the CORS policy to the upstream service instead of responding with CORS headers. |
 | `rejectDisallowedOrigins` | boolean | No | `false` | If true, a non-preflight request whose `Origin` is not in `allowedOrigins` is rejected with `403` instead of being forwarded without CORS headers. Requires `allowedOrigins` to list origins (not `"*"`); each entry must then be `scheme://host[:port]` or a subdomain wildcard such as `https://*.example.com`, and `"null"` is refused. Requests without an `Origin` header are still allowed unless `rejectMissingOrigin` is set. |
-| `rejectMissingOrigin` | boolean | No | `false` | If true, a non-preflight request with no `Origin` header is rejected with `403`. Browsers always send `Origin` on a WebSocket handshake and on cross-origin requests, so this only turns away non-browser clients. |
+| `rejectMissingOrigin` | boolean | No | `false` | If true, a non-preflight request with no `Origin` header is rejected with `403`. Browsers always send `Origin` on a WebSocket handshake and on cross-origin requests, but omit it on ordinary same-origin `GET` and `HEAD` requests (page navigations among them), so enabling this can return `403` to browser requests as well as to non-browser clients. |
 
 **Note:**
 

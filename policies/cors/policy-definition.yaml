@@ -112,9 +112,10 @@ parameters:
       x-wso2-policy-advanced-param: true
       description: >
         When true, a non-preflight request with no Origin header is rejected with
-        403. Browsers always send Origin on a WebSocket handshake, so this only
-        turns away non-browser clients; leave it false when servers or apps that
-        omit Origin must reach the API.
+        403. Browsers always send Origin on a WebSocket handshake, but omit it on
+        ordinary same-origin GET and HEAD requests (page navigations among them),
+        so this can also reject browser requests. Leave it false when those
+        requests, or servers and apps that omit Origin, must reach the API.
       default: false
 
   required:
@@ -133,7 +134,7 @@ parameters:
     properties:
       allowedOrigins:
         items:
-          pattern: '^https?://(\*\.)?[^/?#@\s*]+$'
+          pattern: '^https?://(\*\.)?([^/?#@\s*:\[\]]+|\[[0-9A-Fa-f:.]+\])(:[0-9]+)?$'
 
 systemParameters:
   type: object

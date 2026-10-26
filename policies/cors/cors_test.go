@@ -558,6 +558,8 @@ func TestCorsPolicy_GetPolicy_RejectDisallowedOriginsConfig(t *testing.T) {
 		{"https://user@app.example.com"},
 		{"app.example.com"},
 		{"ftp://app.example.com"},
+		{"https://:8443"},
+		{"https://*.:8443"},
 	} {
 		if _, err := GetPolicy(policy.PolicyMetadata{}, map[string]any{
 			"allowedOrigins": origins, "rejectDisallowedOrigins": true,
@@ -567,7 +569,7 @@ func TestCorsPolicy_GetPolicy_RejectDisallowedOriginsConfig(t *testing.T) {
 	}
 
 	p := mustGetCorsPolicy(t, map[string]any{
-		"allowedOrigins":          []any{"https://app.example.com", "http://localhost:3000", "https://*.example.org"},
+		"allowedOrigins":          []any{"https://app.example.com", "http://localhost:3000", "https://*.example.org", "http://[::1]:8443"},
 		"rejectDisallowedOrigins": true,
 	})
 	if !p.RejectDisallowedOrigins || p.RejectMissingOrigin {

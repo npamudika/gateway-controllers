@@ -47,8 +47,10 @@ type CorsPolicy struct {
 	// (cross-site WebSocket hijacking, or a cross-origin request with side effects).
 	RejectDisallowedOrigins bool
 	// RejectMissingOrigin also answers a request with no Origin header with 403.
-	// Every browser sends Origin on a WebSocket handshake and on cross-origin
-	// requests, so this only turns away non-browser clients.
+	// Browsers send Origin on every WebSocket handshake and cross-origin request,
+	// but omit it on ordinary same-origin GET and HEAD requests (page navigations
+	// among them), so this can turn away browser traffic as well as non-browser
+	// clients.
 	RejectMissingOrigin bool
 }
 
@@ -161,6 +163,9 @@ func validateEnforcedOrigin(origin string) error {
 	}
 	candidate := origin
 	if scheme, suffix, isWildcard := strings.Cut(origin, "://*."); isWildcard {
+		if suffix == "" || strings.HasPrefix(suffix, ":") {
+			return fmt.Errorf("must be scheme://host[:port] with no path, query, fragment or credentials")
+		}
 		candidate = scheme + "://wildcard." + suffix
 	}
 	u, err := url.Parse(candidate)
@@ -170,7 +175,7 @@ func validateEnforcedOrigin(origin string) error {
 	if u.Scheme != "http" && u.Scheme != "https" {
 		return fmt.Errorf("scheme must be http or https")
 	}
-	if u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" {
+	if u.Hostname() == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" {
 		return fmt.Errorf("must be scheme://host[:port] with no path, query, fragment or credentials")
 	}
 	return nil
