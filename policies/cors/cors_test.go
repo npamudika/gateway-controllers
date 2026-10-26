@@ -338,6 +338,42 @@ func TestCorsPolicy_OnRequestHeaders_PreflightFailure_Forwarded(t *testing.T) {
 	}
 }
 
+// With forwardPreflight, a failed preflight is forwarded to the backend; a
+// disallowed origin's preflight must not be while rejectDisallowedOrigins is
+// set. An allowed origin's failed preflight is still forwarded, and without
+// forwardPreflight the usual 204 answer is unchanged.
+func TestCorsPolicy_OnRequestHeaders_PreflightRejectsDisallowedOriginWhenForwarding(t *testing.T) {
+	preflight := func(origin string) *policy.RequestHeaderContext {
+		return newCorsRequestHeaderContext("OPTIONS", map[string][]string{
+			"Origin":                        {origin},
+			"Access-Control-Request-Method": {"DELETE"},
+		})
+	}
+	params := map[string]any{
+		"allowedOrigins":          []any{"https://allowed.example.com"},
+		"allowedMethods":          []any{"GET"},
+		"forwardPreflight":        true,
+		"rejectDisallowedOrigins": true,
+	}
+	p := mustGetCorsPolicy(t, params)
+
+	resp, ok := p.OnRequestHeaders(context.Background(), preflight("https://blocked.example.com"), nil).(policy.ImmediateResponse)
+	if !ok || resp.StatusCode != 403 {
+		t.Fatalf("expected a 403 for a disallowed origin's preflight, got %#v", resp)
+	}
+
+	if _, ok := p.OnRequestHeaders(context.Background(), preflight("https://allowed.example.com"), nil).(policy.UpstreamRequestHeaderModifications); !ok {
+		t.Fatalf("an allowed origin's failed preflight should still be forwarded")
+	}
+
+	params["forwardPreflight"] = false
+	p = mustGetCorsPolicy(t, params)
+	resp, ok = p.OnRequestHeaders(context.Background(), preflight("https://blocked.example.com"), nil).(policy.ImmediateResponse)
+	if !ok || resp.StatusCode != 204 || len(resp.Headers) != 0 {
+		t.Fatalf("without forwardPreflight a disallowed preflight keeps the 204 with no CORS headers, got %#v", resp)
+	}
+}
+
 func TestCorsPolicy_OnRequestHeaders_NonPreflightAllowedOrigin(t *testing.T) {
 	p := mustGetCorsPolicy(t, map[string]any{
 		"allowedOrigins":   []any{"https://allowed.example.com"},

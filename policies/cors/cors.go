@@ -241,6 +241,16 @@ func (p *CorsPolicy) OnRequestHeaders(ctx context.Context, reqCtx *policy.Reques
 	// CORS verdict for what the client actually sent.
 	ds := reqCtx.DownstreamRequest()
 	if strings.EqualFold(ds.Method, "options") {
+		// A failed preflight is answered without CORS headers, which browsers
+		// already treat as a refusal. With forwardPreflight it would instead
+		// reach the backend, which a disallowed origin must not do while
+		// rejectDisallowedOrigins is set.
+		if p.ForwardPreflight && p.RejectDisallowedOrigins {
+			if origin := ds.Headers.Get("Origin"); len(origin) > 0 && !p.isOriginAllowed(origin[0]) {
+				slog.Debug("CORS: Rejecting forwarded preflight from a disallowed origin")
+				return rejectedOriginResponse()
+			}
+		}
 		slog.Debug("CORS: Preflight request detected in header phase; handling preflight")
 		return p.handlePreflightHeaders(ds.Headers)
 	}

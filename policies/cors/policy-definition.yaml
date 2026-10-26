@@ -105,7 +105,10 @@ parameters:
         Requires allowedOrigins to list origins rather than "*"; each entry must
         then be scheme://host[:port] (or https://*.example.com), and "null" is
         refused. Requests without an Origin header are still allowed unless
-        rejectMissingOrigin is set.
+        rejectMissingOrigin is set. Preflight (OPTIONS) requests keep the normal
+        CORS answer, which browsers treat as a refusal for a disallowed origin;
+        only with forwardPreflight is a disallowed origin's preflight rejected
+        with 403 rather than forwarded.
       default: false
     rejectMissingOrigin:
       type: boolean
