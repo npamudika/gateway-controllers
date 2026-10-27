@@ -105,8 +105,8 @@ parameters:
         Requires allowedOrigins to list origins rather than "*"; each entry must
         then be scheme://host[:port] (or https://*.example.com), and "null" is
         refused. Requests without an Origin header are still allowed unless
-        rejectMissingOrigin is set. Preflight (OPTIONS) requests keep the normal
-        CORS answer, which browsers treat as a refusal for a disallowed origin;
+        rejectMissingOrigin is set. Preflight requests (OPTIONS with
+        Access-Control-Request-Method) keep the normal CORS answer, which browsers treat as a refusal for a disallowed origin;
         only with forwardPreflight is a disallowed origin's preflight rejected
         with 403 rather than forwarded.
       default: false
@@ -114,7 +114,8 @@ parameters:
       type: boolean
       x-wso2-policy-advanced-param: true
       description: >
-        When true, a non-preflight request with no Origin header is rejected with
+        When true, a non-preflight request (including an OPTIONS without
+        Access-Control-Request-Method) with no Origin header is rejected with
         403. Browsers always send Origin on a WebSocket handshake, but omit it on
         ordinary same-origin GET and HEAD requests (page navigations among them),
         so this can also reject browser requests. Leave it false when those

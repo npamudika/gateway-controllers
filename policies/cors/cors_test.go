@@ -374,6 +374,35 @@ func TestCorsPolicy_OnRequestHeaders_PreflightRejectsDisallowedOriginWhenForward
 	}
 }
 
+// An OPTIONS without Access-Control-Request-Method is not a CORS preflight, so
+// the reject options apply to it; a real preflight keeps the preflight answer.
+func TestCorsPolicy_OnRequestHeaders_NonPreflightOptionsFollowsRejectOptions(t *testing.T) {
+	strict := mustGetCorsPolicy(t, map[string]any{
+		"allowedOrigins":          []any{"https://allowed.example.com"},
+		"rejectDisallowedOrigins": true,
+		"rejectMissingOrigin":     true,
+	})
+	for name, headers := range map[string]map[string][]string{
+		"no Origin":         nil,
+		"disallowed Origin": {"Origin": {"https://blocked.example.com"}},
+	} {
+		resp, ok := strict.OnRequestHeaders(context.Background(), newCorsRequestHeaderContext("OPTIONS", headers), nil).(policy.ImmediateResponse)
+		if !ok || resp.StatusCode != 403 {
+			t.Errorf("%s: expected a 403 for a non-preflight OPTIONS, got %#v", name, resp)
+		}
+	}
+
+	preflight := newCorsRequestHeaderContext("OPTIONS", map[string][]string{"Access-Control-Request-Method": {"GET"}})
+	if resp, ok := strict.OnRequestHeaders(context.Background(), preflight, nil).(policy.ImmediateResponse); !ok || resp.StatusCode != 204 {
+		t.Errorf("a preflight keeps the preflight answer, got %#v", resp)
+	}
+
+	lenient := mustGetCorsPolicy(t, map[string]any{"allowedOrigins": []any{"https://allowed.example.com"}})
+	if resp, ok := lenient.OnRequestHeaders(context.Background(), newCorsRequestHeaderContext("OPTIONS", nil), nil).(policy.ImmediateResponse); !ok || resp.StatusCode != 204 {
+		t.Errorf("without the reject options an OPTIONS is handled as before, got %#v", resp)
+	}
+}
+
 func TestCorsPolicy_OnRequestHeaders_NonPreflightAllowedOrigin(t *testing.T) {
 	p := mustGetCorsPolicy(t, map[string]any{
 		"allowedOrigins":   []any{"https://allowed.example.com"},
