@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 
 	policy "github.com/wso2/api-platform/sdk/core/policy/v1alpha2"
@@ -179,6 +180,13 @@ func validateEnforcedOrigin(origin string) error {
 	// with one could never match.
 	if u.Hostname() == "" || strings.Contains(u.Hostname(), "%") || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" {
 		return fmt.Errorf("must be scheme://host[:port] with no path, query, fragment or credentials")
+	}
+	// A browser serializes the port as a plain decimal number, so an entry with
+	// an out-of-range port, a leading zero or an empty port could never match.
+	if port := u.Port(); port != "" || strings.HasSuffix(u.Host, ":") {
+		if n, err := strconv.Atoi(port); err != nil || n > 65535 || (len(port) > 1 && port[0] == '0') {
+			return fmt.Errorf("port must be a number from 0 to 65535 with no leading zeros")
+		}
 	}
 	return nil
 }

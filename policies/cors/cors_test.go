@@ -631,6 +631,10 @@ func TestCorsPolicy_GetPolicy_RejectDisallowedOriginsConfig(t *testing.T) {
 		{"https://[1.2.3.4]"},
 		{"https://*.[::1]"},
 		{"https://[fe80::1%25eth0]"},
+		{"https://app.example.com:65536"},
+		{"https://app.example.com:08443"},
+		{"https://app.example.com:"},
+		{"https://bad%zz.example"},
 	} {
 		if _, err := GetPolicy(policy.PolicyMetadata{}, map[string]any{
 			"allowedOrigins": origins, "rejectDisallowedOrigins": true,
@@ -761,6 +765,10 @@ func TestCorsPolicy_EnforcedOriginSchemaMatchesValidation(t *testing.T) {
 		"https://[1.2.3.4]", "https://*.[::1]", "https://[::1", "https://[fe80::1%25eth0]",
 		"https://[1:2:3:4:5:6:7:8:9]", "https://[::ffff:256.0.0.1]",
 		"https://app.example.com/", "https://user@app.example.com", "ftp://app.example.com", "null",
+		"https://app.example.com:0", "https://app.example.com:65535", "https://app.example.com:65536",
+		"https://app.example.com:99999", "https://app.example.com:08443", "https://app.example.com:",
+		"https://[::1]:70000", "https://[::1]:", "https://*.example.org:99999",
+		"https://bad%zz.example", "https://bad%41.example",
 	} {
 		schemaOK := schema.MatchString(origin)
 		codeOK := validateEnforcedOrigin(origin) == nil
