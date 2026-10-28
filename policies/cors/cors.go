@@ -175,7 +175,9 @@ func validateEnforcedOrigin(origin string) error {
 	if u.Scheme != "http" && u.Scheme != "https" {
 		return fmt.Errorf("scheme must be http or https")
 	}
-	if u.Hostname() == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" {
+	// A browser never puts an IPv6 zone identifier in an Origin, so an entry
+	// with one could never match.
+	if u.Hostname() == "" || strings.Contains(u.Hostname(), "%") || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" {
 		return fmt.Errorf("must be scheme://host[:port] with no path, query, fragment or credentials")
 	}
 	return nil

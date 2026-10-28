@@ -2,7 +2,9 @@ package cors
 
 import (
 	"context"
+	"os"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -625,6 +627,10 @@ func TestCorsPolicy_GetPolicy_RejectDisallowedOriginsConfig(t *testing.T) {
 		{"ftp://app.example.com"},
 		{"https://:8443"},
 		{"https://*.:8443"},
+		{"https://[1:2:3]"},
+		{"https://[1.2.3.4]"},
+		{"https://*.[::1]"},
+		{"https://[fe80::1%25eth0]"},
 	} {
 		if _, err := GetPolicy(policy.PolicyMetadata{}, map[string]any{
 			"allowedOrigins": origins, "rejectDisallowedOrigins": true,
@@ -731,5 +737,35 @@ func TestCorsPolicy_RejectOptionsOffByDefaultAndPreflightUnchanged(t *testing.T)
 	})
 	if _, ok := strict.OnRequestHeaders(context.Background(), preflight, nil).(policy.ImmediateResponse); !ok {
 		t.Fatalf("an allowed preflight is still answered by the policy")
+	}
+}
+
+// The policy-definition schema refuses enforced origins when an API is
+// deployed, and validateEnforcedOrigin refuses them when the policy loads; the
+// two must agree, or an origin passes one check and fails the other.
+func TestCorsPolicy_EnforcedOriginSchemaMatchesValidation(t *testing.T) {
+	raw, err := os.ReadFile("policy-definition.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := regexp.MustCompile(`(?m)^\s*pattern: '([^']+)'`).FindSubmatch(raw)
+	if m == nil {
+		t.Fatal("no allowedOrigins pattern in policy-definition.yaml")
+	}
+	schema := regexp.MustCompile(string(m[1]))
+	for _, origin := range []string{
+		"https://app.example.com", "http://localhost:3000", "https://app.example.com:8443",
+		"https://*.example.org", "https://*.example.org:443", "http://[::1]", "https://[::1]:8443",
+		"https://[2001:db8::1]", "https://[::ffff:192.0.2.1]", "http://[::]",
+		"https://:8443", "https://*.:8443", "https://[1:2:3]", "https://[:::]", "https://[...]",
+		"https://[1.2.3.4]", "https://*.[::1]", "https://[::1", "https://[fe80::1%25eth0]",
+		"https://[1:2:3:4:5:6:7:8:9]", "https://[::ffff:256.0.0.1]",
+		"https://app.example.com/", "https://user@app.example.com", "ftp://app.example.com", "null",
+	} {
+		schemaOK := schema.MatchString(origin)
+		codeOK := validateEnforcedOrigin(origin) == nil
+		if schemaOK != codeOK {
+			t.Errorf("%q: schema accepts=%t, validateEnforcedOrigin accepts=%t", origin, schemaOK, codeOK)
+		}
 	}
 }
